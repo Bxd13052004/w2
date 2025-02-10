@@ -65,9 +65,10 @@ app.use("/api", api);
 //ping server
 setInterval(async () => {
     try {
+        const response1 = await axios.get(process.env.OTHER_WAITER_URL + "/ping");
+        console.log("mainbackend response:", response.data);
         const response = await axios.get(process.env.MAIN_BACKEND_URL + "/ping");
         console.log("mainbackend response:", response.data);
-
     } catch (error) {
         console.error("Error fetching from backend:", error.message);
     }
