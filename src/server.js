@@ -25,10 +25,10 @@ globalThis.countOfWaiter = 0
 //refesh queue waiter
 
 
-setInterval(
-    async () => {
-        await services.refreshWaiterQueue(globalThis.waiterQueue)
-    }, 1000 * 60 * 20)
+// setInterval(
+//     async () => {
+//         await services.refreshWaiterQueue(globalThis.waiterQueue)
+//     }, 1000 * 60 * 20)
 
 
 //init app

@@ -102,34 +102,6 @@ class Controler {
     }
 
 
-    async getWaiterOfUserId(req, res) {
-
-        try {
-            let decodeAccessToken = req.decodeAccessToken;
-            let userId = decodeAccessToken.userId; //get userId
-
-            let waiters = await connection.excuteQuery(`select * from waiter where userId = ${userId}`)
-                .then((res) => {
-                    return res
-                })
-                .catch((e) => {
-                    console.log(e);
-                })
-
-            return res.status(200).json({
-                message: "ok",
-                waiters
-            })
-
-        } catch (error) {
-            console.log("err when getWaiterOfUserId : ", error);
-            res.status(500).json({
-                message: "have wrong!!"
-            })
-        }
-    }
-
-
     async deleteWaiter(req, res) {
 
         try {
@@ -301,6 +273,10 @@ class Controler {
             message: "ok",
             countOfWaiter: globalThis.countOfWaiter
         })
+
+    }
+
+    runningWaiterByModule(req, res) {
 
     }
 

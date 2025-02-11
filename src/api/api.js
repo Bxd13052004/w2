@@ -35,6 +35,8 @@ api.use("/auth", middleware.checkInforAccessToken)
 api.post("/getCountOfWaiter", controler.getCountOfWaiter) // login haui sv
 
 api.post("/runningWaiter", controler.runningWaiter)
+api.post("/runningWaiterByModule", controler.runningWaiterByModule)
+
 
 
 
