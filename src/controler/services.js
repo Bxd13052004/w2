@@ -1,107 +1,11 @@
-const jwt = require("jsonwebtoken")
-const fs = require("fs")
-const crypto = require("crypto")
 const axios = require('axios');
 const qs = require('qs');
 const { CookieJar } = require('tough-cookie');
 const { wrapper } = require('axios-cookiejar-support');
 const cheerio = require('cheerio');
-const { connect } = require("http2");
-const { connection } = require("../database/connection");
-
+const fs = require("fs")
 
 class Services {
-
-
-
-
-    sha256(string, typeHash = "hex") { // base64 base64url binary hex
-        try {
-            let sha256 = crypto.createHash("sha256")
-            return sha256.update(string).digest(typeHash)
-        } catch (error) {
-            console.log("err when sha256 : ", error);
-            // this.appendError500("err when sha256 : ", error)
-        }
-    }
-
-
-    encodeRSA(data) {
-
-        try {
-
-            try {
-                const publicKey = fs.readFileSync('./src/public.pem', 'utf8');
-                const bufferData = Buffer.from(data, 'utf8');
-                const encryptedData = crypto.publicEncrypt(
-                    {
-                        key: publicKey,
-                        padding: crypto.constants.RSA_PKCS1_OAEP_PADDING,
-                        oaepHash: 'sha256',
-                    },
-                    bufferData
-                );
-                return encryptedData.toString('base64');
-            } catch (err) {
-                throw new Error(err)
-            }
-
-
-
-        } catch (error) {
-            console.log("encode RSA false" + error);
-            return "encode RSA false" + error
-        }
-
-
-    }
-
-    decodeRSA(encryptedData) {
-        try {
-            const privateKey = fs.readFileSync('./src/private.pem', 'utf8');
-
-            try {
-                // Giải mã dữ liệu sử dụng private key
-                const decryptedData = crypto.privateDecrypt(
-                    {
-                        key: privateKey,
-                        padding: crypto.constants.RSA_PKCS1_OAEP_PADDING, // Sử dụng OAEP padding
-                        oaepHash: 'sha256', // Đảm bảo sử dụng SHA-256 cho OAEP
-                    },
-                    Buffer.from(encryptedData, 'base64') // Convert dữ liệu mã hóa về Buffer
-                );
-
-                // Trả về dữ liệu đã giải mã
-                return decryptedData.toString()
-            } catch (err) {
-                throw new Error(err)
-            }
-
-
-
-        } catch (error) {
-            console.log("decode RSA false" + error);
-            return "decode RSA false" + error
-        }
-    }
-
-    encodeAES(data, key = process.env.KEY_AES, iv = process.env.IV_AES) {
-        key = Buffer.from(key.padEnd(32, '0').slice(0, 32)); // Đảm bảo khóa 32 byte
-        iv = Buffer.from(iv.padEnd(16, '0').slice(0, 16));
-        const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
-        let encrypted = cipher.update(data, 'utf8', 'hex');
-        encrypted += cipher.final('hex');
-        return encrypted;
-    }
-
-    decodeAES(encryptedData, key = process.env.KEY_AES, iv = process.env.IV_AES) {
-        key = Buffer.from(key.padEnd(32, '0').slice(0, 32)); // Đảm bảo khóa 32 byte
-        iv = Buffer.from(iv.padEnd(16, '0').slice(0, 16));
-        const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
-        let decrypted = decipher.update(encryptedData, 'hex', 'utf8');
-        decrypted += decipher.final('utf8');
-        return decrypted;
-    }
 
 
     async getTokenUrlHaui(userNameHaui, passWordHaui) {
@@ -231,169 +135,6 @@ class Services {
             console.error("Error:", error);
             return { state: false, captchaResponse: "" };
         }
-    }
-
-
-
-
-    async dataFomTokenUrl(token_url, userId) {
-        try {
-            if (!token_url.includes("token=")) {
-                return {
-                    state: false,
-                    message: "Tài khoản mật khẩu haui chưa chính xác"
-                }
-            }
-            const jar = new CookieJar();
-            const axiosInstance = wrapper(
-                axios.create({
-                    jar,
-                    withCredentials: true,
-                    headers: {
-                        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 9_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/9.0 Mobile/15E148 Safari/604.1'
-                    }
-                })
-            );
-
-            // Bước 1: Gửi yêu cầu đầu tiên với token
-            const initialResponse = await axiosInstance.get(token_url)
-                .then((res) => {
-                    return res.data
-                })
-
-            const $ = cheerio.load(initialResponse);
-            const viewState = $('#__VIEWSTATE').val();
-            const viewStateGenerator = $('#__VIEWSTATEGENERATOR').val();
-            const siteKey = $('.g-recaptcha').attr('data-sitekey');
-            const eventValidation = $('#__EVENTVALIDATION').val();
-            let token = token_url.split("?token=")[1]
-
-            // console.log({ viewState, viewStateGenerator, siteKey, eventValidation, token_url });
-
-
-            let user = await connection.excuteQuery(`select * from user where userId = ${userId}`)
-                .then((data) => {
-                    return data[0]
-                })
-                .catch((err) => {
-                    throw new Error(err)
-                })
-            let balance = user?.balance;
-
-            if (!balance) {
-                return {
-                    state: false,
-                    message: "Số dư không hợp lệ!"
-                }
-            }
-            if (balance < .5) {
-                return {
-                    state: false,
-                    message: "Cần ít nhất 0.5 xu để thực hiện chức năng này!"
-                }
-            }
-
-
-            let solver = await this.capsolver(siteKey, token_url).then(token => {
-                return token
-            });
-            // console.log(solver);
-
-
-            if (!solver.state) {
-                return {
-                    state: false,
-                    message: "Gặp sự cố về mạng! Vui lòng đăng nhập lại.(Không trừ tiền)"//captcha fasle
-                }
-            }
-            // console.log(token_url);
-
-
-
-            const url = `https://sv.haui.edu.vn/sso?token=${token}`;
-
-            // Các tham số cần gửi đi trong body
-            const data1 = qs.stringify({
-                __VIEWSTATE: viewState,
-                __VIEWSTATEGENERATOR: viewStateGenerator,
-                __EVENTVALIDATION: eventValidation,
-                'g-recaptcha-response': solver.captchaResponse,
-                ctl00$butLogin: "Xác thực"
-            });
-            // console.log(data1);
-
-
-            // Cấu hình headers
-            const headers = {
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-                'Accept-Encoding': 'gzip, deflate, br, zstd',
-                'Accept-Language': 'en-US,en;q=0.9',
-                'Cache-Control': 'max-age=0',
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'Origin': 'https://sv.haui.edu.vn',
-                'Referer': token_url,
-                'Sec-CH-UA': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
-                'Sec-CH-UA-Mobile': '?0',
-                'Sec-CH-UA-Platform': '"Windows"',
-                'Sec-Fetch-Dest': 'document',
-                'Sec-Fetch-Mode': 'navigate',
-                'Sec-Fetch-Site': 'same-origin',
-                'Sec-Fetch-User': '?1',
-                'Upgrade-Insecure-Requests': '1',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-            };
-
-            // Bước 1: Gửi yêu cầu POST để đăng nhập
-            const loginResponse = await axiosInstance.post(url, data1, { headers });
-            console.log('Login successful.');
-
-            // console.log(loginResponse);
-
-
-            // Bước 2: Thực hiện chuyển hướng thủ công đến "/"
-            const redirectResponse = await axiosInstance.get('https://sv.haui.edu.vn/');
-
-            // console.log(redirectResponse.data);
-
-            // Lấy cookie từ jar nếu cần sử dụng trong các bước tiếp theo
-            const finalCookies = jar.toJSON();
-            const Cookie = finalCookies.cookies
-                .map(({ key, value }) => `${key}=${value}`)
-                .join('; ');
-
-            // Bước 3: Load HTML vào Cheerio để trích xuất dữ liệu
-            const $1 = cheerio.load(redirectResponse.data);
-
-
-
-            // Trích xuất tên người dùng từ `.user-name`
-            let nameHaui = $1('.user-name').text().trim();
-            nameHaui = nameHaui.slice(0, Math.floor(nameHaui.length / 2)); // Lấy nửa đầu của tên
-
-            // Trích xuất kverify từ script
-            const kverifyMatch = redirectResponse.data.match(/var kverify = '(.*?)';/);
-            const kverify = kverifyMatch ? kverifyMatch[1] : '';
-
-            // Bước 4: Cập nhật số dư trong cơ sở dữ liệu
-            await connection
-                .excuteQuery(`UPDATE user SET balance = balance - 0.5 WHERE userId = ${userId}`)
-                .then(() => console.log(`Balance updated for userId ${userId}`))
-                .catch((e) => console.error('Database update error:', e));
-
-
-
-            // Bước 5: Trả về dữ liệu cuối cùng
-            return { nameHaui, kverify, Cookie, state: true, message: 'ok' };
-
-        } catch (error) {
-            console.error('Có lỗi xảy ra:', error);
-            return {
-                state: false,
-                message: "unknown error!"
-            }
-        }
-
-
     }
 
 
@@ -575,49 +316,6 @@ class Services {
     }
 
 
-    async removeClass(kverify, Cookie, classCode) {
-        return new Promise(async (reslove, resject) => {
-            const url = `https://sv.haui.edu.vn/ajax/register/action.htm?cmd=removeclass&v=${kverify}`;
-            const payload = qs.stringify({
-                class: classCode,
-                ctdk: 863,
-            });
-
-
-            const config = {
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-                    'Accept': 'application/json, text/javascript, */*; q=0.01',
-                    'Accept-Encoding': 'gzip, deflate, br, zstd',
-                    'Accept-Language': 'en,vi-VN;q=0.9,vi;q=0.8,fr-FR;q=0.7,fr;q=0.6,en-US;q=0.5',
-                    'Cookie': Cookie,
-                    'Origin': 'https://sv.haui.edu.vn',
-                    'Referer': 'https://sv.haui.edu.vn/register/',
-                    'Sec-CH-UA': '"Not)A;Brand";v="99", "Google Chrome";v="127", "Chromium";v="127"',
-                    'Sec-CH-UA-Mobile': '?0',
-                    'Sec-CH-UA-Platform': '"Windows"',
-                    'Sec-Fetch-Dest': 'empty',
-                    'Sec-Fetch-Mode': 'cors',
-                    'Sec-Fetch-Site': 'same-origin',
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36',
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            };
-
-            await axios.post(url, payload, config)
-                .then(response => {
-                    // console.log(response);
-
-                    reslove(response.data)
-                })
-                .catch(error => {
-                    console.error('Lỗi:', error);
-                    resject(error)
-                });
-        })
-    }
-
-
     async addClass(kverify, Cookie, classCode) {
         return new Promise(async (reslove, resject) => {
             const url = `https://sv.haui.edu.vn/ajax/register/action.htm?cmd=addclass&v=${kverify}`;
@@ -654,7 +352,7 @@ class Services {
 
                 })
                 .catch(error => {
-                    console.error('Lỗi:', error);
+                    console.error('Lỗi khi add classCode : ' + classCode);
                     resject(error)
                 });
         })
@@ -666,13 +364,9 @@ class Services {
 
         return new Promise(async (reslove, reject) => {
 
-
-
             let captchaResponse = ""
 
-
             const url = `https://sv.haui.edu.vn/ajax/register/action.htm?cmd=classbymodulesid&v=${kverify}`;
-
 
             await this.capsolver("6LdPnAUaAAAAABC-5dwvcjM0_RPdC9s3ldQlHmd8", url, "CAP-98FD5A795C8B28185FA47ECBD14D7E70").then(result => {
                 if (result.state) {
@@ -725,58 +419,7 @@ class Services {
         })
     }
 
-
-    //transaction
-
-
-    getInforFromTotal(toTal, arrValue0) {
-        let arrValue = arrValue0.map((e) => { return e.toTal })
-        if (Number(toTal) == NaN || toTal < 0) {
-            return {
-                curentLevel: -1,
-                curBonus: 0,
-            }
-        }
-        for (let i = 0; i < arrValue.length - 1; i++) {
-            if (toTal >= arrValue[i] && toTal < arrValue[i + 1]) {
-                return {
-                    curentLevel: i,
-                    curBonus: arrValue0[i].curBonus,
-                }
-            }
-        }
-        return {
-            curentLevel: arrValue.length,
-            curBonus: 1,
-        }
-
-    }
-    formatDate(date) {
-        date = new Date(date)
-        let day = String(date.getDate()).padStart(2, '0');
-        let month = String(date.getMonth() + 1).padStart(2, '0'); // Tháng bắt đầu từ 0
-        let year = date.getFullYear();
-        let hours = String(date.getHours()).padStart(2, '0');
-        let minutes = String(date.getMinutes()).padStart(2, '0');
-        let seconds = String(date.getSeconds()).padStart(2, '0');
-
-        return `${day}-${month}-${year} ${hours}:${minutes}:${seconds}`;
-    }
-
-    convertStringToDateNow(s) {
-        // Chuyển đổi chuỗi sang định dạng Date
-        let dateParts = s.split(' ')[0].split('-');
-        let timeParts = s.split(' ')[1].split(':');
-
-        let date = new Date(Date.UTC(dateParts[2], dateParts[1] - 1, dateParts[0], timeParts[0], timeParts[1], timeParts[2]));
-
-        // Việt Nam là UTC+7
-        let vietnamTime = new Date(date.getTime() + (7 * 60 * 60 * 1000));
-
-        // Lấy giá trị theo mili giây
-        let timestamp = vietnamTime.getTime();
-        return timestamp
-    }
+    //----------------------------------------------------------------------------------------------------
 
 
     async runningWaiter(time, userNameHaui, classCode) {
@@ -830,8 +473,6 @@ class Services {
         }
     }
 
-
-
     async addWaiterToQueue(userNameHaui, passwordHaui) {
         try {
             if (!globalThis.waiterQueue) {
@@ -872,8 +513,7 @@ class Services {
         }
     }
 
-
-    async refreshWaiterQueue(waiterQueue) {
+    async refreshWaiterQueue(waiterQueue) { // dung chung cho ca spamer va waiter
         try {
             for (let [userNameHaui, waiterObj] of waiterQueue) {
 
@@ -919,6 +559,255 @@ class Services {
         }
     }
 
+    getInfor(data) {
+
+        function getDays(classData) {
+            let listDate = classData?.ListDate
+            if (!listDate) {
+                return null
+            }
+
+            const days = new Set(JSON.parse(listDate).map((e) => Number(e.DayStudy)));
+            return Array.from(days)
+        };
+
+        // Hàm để lấy danh sách tiết học
+        function getTimes(classData) {
+            let listDate = classData?.ListDate
+
+            if (!listDate) {
+                return null
+            }
+            const times = new Set(JSON.parse(listDate).map((e) => Number(e.StudyTime)));
+            return Array.from(times);
+        };
+
+        // Hàm để lấy tên giáo viên
+        function getTeacherName(classData) {
+            let teacherData = classData?.GiaoVien
+            if (!teacherData) {
+                return null;
+            }
+            const teachers = JSON.parse(teacherData);
+            return teachers?.length ? teachers.map((e) => { return e.Fullname }).join(" - ") : null;
+        };
+
+        let res = []
+
+        for (let e of data) {
+            res.push({ teachersName: getTeacherName(e), times: getTimes(e), days: getDays(e), classCode: e.IndependentClassID, moduleName: e.ModulesName })
+        }
+
+        return res
+
+    }
+    includesTeacherName(teacherName, inputTeacherName) {
+        let listTeacherName = inputTeacherName.split("-")
+
+        teacherName = teacherName.normalize("NFKD").replace(/[\u0300-\u036f]/g, '').toLowerCase().replaceAll(" ", '')
+
+        listTeacherName = listTeacherName.map((e) => {
+            return e.normalize("NFKD").replace(/[\u0300-\u036f]/g, '').toLowerCase().replaceAll(" ", '')
+        })
+        return listTeacherName.includes(teacherName)
+
+    }
+    addPointAndSort(dataHandled, prioTeacher, avoidTeacher, prioTime, avoidTime, prioOnline) {
+        try {
+            prioTime = this.convertTextToMapObj(prioTime)
+            avoidTime = this.convertTextToMapObj(avoidTime)
+
+            for (let e of dataHandled) {
+                if (!e?.point) {
+                    e.point = 0
+                }
+                if (this.includesTeacherName(e.teachersName, prioTeacher)) {
+                    e.point += 2
+                }
+                if (this.includesTeacherName(e.teachersName, avoidTeacher)) {
+                    e.point--
+                }
+                if (prioOnline && e.online) {
+                    e.point += 2
+                }
+
+                for (let day of e.days) {
+                    let prioTimes = prioTime.get(day.toString())
+                    if (prioTimes) {
+                        prioTimes = prioTimes.trim().split("-").map((k) => { return Number(k.trim()) })
+                        for (let t of e.times) {
+                            if (prioTimes.includes(t)) {
+                                e.point++
+                            }
+                        }
+                    }
+
+                    let avoidTimes = avoidTime.get(day.toString())
+                    if (avoidTimes) {
+                        avoidTimes = avoidTimes.trim().split("-").map((k) => { return Number(k.trim()) })
+                        for (let t of e.times) {
+                            if (avoidTimes.includes(t)) {
+                                e.point -= 2
+                            }
+                        }
+                    }
+                }
+            }
+            dataHandled.sort((a, b) => { return b.point - a.point })
+        } catch (error) {
+            console.log("err when addPointAndSort : ", error);
+
+        }
+    }
+
+
+    async addSpamerToQueue(userNameHaui, passwordHaui) {
+        try {
+            if (!globalThis.SpamerQueue) {
+                globalThis.SpamerQueue = new Map();
+            }
+
+            if (!globalThis.SpamerQueue.has(userNameHaui)) {
+                let stop = false, Cookie, kverify, nameHaui;
+                let attempts = 0, maxAttempts = 10;
+
+                while (!stop && attempts < maxAttempts) {
+                    attempts++;
+                    let token_url = await this.getTokenUrlHaui(userNameHaui, passwordHaui);
+                    let dataLoginHaui = await this.dataFomTokenUrl2(token_url);
+
+                    stop = dataLoginHaui?.state || false;
+                    Cookie = dataLoginHaui?.Cookie || "zzz";
+                    kverify = dataLoginHaui?.kverify || "zzz";
+                    nameHaui = dataLoginHaui?.nameHaui || "nameHaui";
+                }
+
+                if (attempts === maxAttempts) {
+                    console.log("Exceeded max login attempts.");
+                }
+
+                globalThis.SpamerQueue.set(userNameHaui, {
+                    nameHaui,
+                    passwordHaui,
+                    Cookie,
+                    kverify,
+                    lastTimeUse: Date.now()
+                });
+            }
+            console.log("time : " + Date.now() + " spamer!! : ", globalThis.SpamerQueue);
+        } catch (error) {
+            console.log("Lỗi khi thêm vào hàng đợi:", error);
+        }
+    }
+
+    convertTextToMapObj(text) {
+        text = text.trim()
+        text = text.split("\n")
+        let m = new Map()
+        for (let e of text) {
+            e = e.trim()
+            let el = e.split(":")
+            m.set(el[0], el[1])
+        }
+        return m
+    }
+
+    async runningSpamer(userNameHaui, passWordHaui, moduleId, timeSpam, note, prioTeacher, avoidTeacher, prioTime, avoidTime, prioOnline) {
+
+        // lay cookie , kverify (runningObj)
+
+        if (!globalThis.SpamerQueue?.has(userNameHaui)) {
+            console.log(`User ${userNameHaui} không tồn tại trong hàng đợi.`);
+            return;
+        }
+
+        let runningObj = globalThis.SpamerQueue.get(userNameHaui);
+        runningObj.lastTimeUse = Date.now()
+
+
+        let dataClasses
+
+        //_______________________________________________________________________________________________________________ // thu lay ma lop 4 lan de luu vao globalThis neu khong co
+
+        dataClasses = globalThis.classesOfModuleId.get(moduleId)
+        if (!dataClasses?.length) {
+            let attempts = 0;
+            const maxAttempts = 4; // Giới hạn số lần thử
+            while (attempts < maxAttempts) {
+                attempts++;
+                let res = await this.getInforClass(runningObj.kverify, runningObj.Cookie, moduleId)
+                dataClasses = res?.data
+                if (dataClasses?.length > 0) {
+                    globalThis.classesOfModuleId.set(moduleId, dataClasses)
+                    break
+                }
+            }
+        }
+
+
+
+        //_________________________________________________________________________________________________________________
+
+
+        let runningTimeMap = {
+            1: 1000 * 60 * 5,  // 5 phút
+            2: 1000 * 60 * 15, // 15 phút
+            3: 1000 * 60 * 30,  // 30 phút 
+            4: 1000 * 60 * 60  // 60 phút 
+        };
+
+        let runningTime = runningTimeMap[timeSpam] || 1000 * 60 * 5;
+
+        try {
+
+            let endRun; // Khai báo trước để tránh lỗi khi clearTimeout
+            //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+            let running = setInterval(async () => {
+                let classes = globalThis.classesOfModuleId.get(moduleId)
+                if (classes?.length > 0) {
+                    let copyDataClasses = [...classes]
+                    copyDataClasses = this.getInfor(copyDataClasses)
+                    this.addPointAndSort(copyDataClasses, prioTeacher, avoidTeacher, prioTime, avoidTime, prioOnline)
+
+                    // fs.writeFileSync("./test.json", JSON.stringify(copyDataClasses))
+
+                    try {
+                        for (let cl of copyDataClasses) {
+                            let submit = await this.addClass(runningObj?.kverify, runningObj?.Cookie, cl.classCode);
+                            console.log(`${runningObj.nameHaui} ----${cl.moduleName} -------------- ${cl.classCode}`, submit);
+
+                            // Nếu không có lỗi, dừng vòng lặp và clear timeout
+                            if (!submit?.err) {
+                                clearInterval(running);
+                                if (endRun) clearTimeout(endRun); // Kiểm tra nếu endRun tồn tại trước khi clear
+                                console.log(`Dừng chạy sớm cho user ${runningObj.nameHaui}, hoc phan :  ${cl.moduleName}.`);
+                            }
+                        }
+
+                    } catch (e) {
+                        console.log("Lỗi khi gọi addClass:", e);
+                    }
+                }
+
+
+            }, 2000);
+            //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+            // Hủy interval sau thời gian tối đa
+            try {
+                endRun = setTimeout(() => {
+                    clearInterval(running);
+                    console.log(`Hết thời gian chạy cho user ${userNameHaui}, lớp ${classCode}.`);
+                }, runningTime);
+            } catch (error) {
+                console.log("Đã clear trước đó!");
+            }
+
+        } catch (error) {
+            console.log("Lỗi khi chạy runningWaiter:", error);
+        }
+    }
 
 
     async sleep(ms) {

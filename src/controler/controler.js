@@ -1,9 +1,7 @@
 const { default: axios } = require('axios')
 const { connection } = require('../database/connection.js')
 const Services = require('./services.js')
-const bcrypt = require("bcryptjs")
-const fs = require("fs")
-const { error } = require('console')
+
 
 const cheerio = require('cheerio');
 
@@ -102,83 +100,6 @@ class Controler {
     }
 
 
-    async deleteWaiter(req, res) {
-
-        try {
-            let decodeAccessToken = req.decodeAccessToken;
-            let userId = decodeAccessToken.userId; //get userId
-
-            let { waiterId } = req.body
-
-            if (!waiterId) {
-                res.status(400).json({
-                    message: "missing data!"
-                })
-                return
-            }
-
-            await connection.excuteQuery(`delete from waiter where waiterId = ${waiterId}`)
-                .catch((e) => {
-                    console.log(e);
-                })
-
-            return res.status(200).json({
-                message: "ok"
-            })
-
-        } catch (error) {
-            console.log("err when deleteWaiter : ", error);
-            res.status(500).json({
-                message: "have wrong!!"
-            })
-        }
-
-
-
-    }
-
-
-    async addNewWaiter(req, res) {
-
-        try {
-
-            let decodeAccessToken = req.decodeAccessToken;
-            let userId = decodeAccessToken.userId; //get userId
-
-
-            let { userNameHaui, passwordHaui, classCode, time, note } = req.body
-
-            // console.log({ userNameHaui, passwordHaui, classCode, time });
-
-
-            if (!userNameHaui || !passwordHaui || !classCode || !time) {
-                res.status(400).json({
-                    message: "missing data!"
-                })
-                return
-            }
-
-            await connection.excuteQuery(`insert into waiter (userNameHaui, passwordHaui, classCode, timeWait,userId,note ) values ('${userNameHaui}' , '${passwordHaui}' , '${classCode}' , ${Number(time)} , '${userId}' , '${note}')`)
-                .catch((e) => {
-                    console.log(e);
-                })
-
-            return res.status(200).json({
-                message: "add new waiter success!"
-            })
-
-
-
-        } catch (error) {
-
-            console.log("error when addNewWaiter : ", error);
-            return res.status(500).json({
-                message: "have wrong!!"
-            })
-        }
-
-    }
-
     async runningWaiter(req, res) {
 
         try {
@@ -257,7 +178,6 @@ class Controler {
 
             await services.addWaiterToQueue(userNameHaui, passWordHaui)
 
-
             await services.runningWaiter(timeWait, userNameHaui, classCode)
 
         } catch (error) {
@@ -276,9 +196,125 @@ class Controler {
 
     }
 
-    runningWaiterByModule(req, res) {
 
+
+
+
+    getCountOfSpamer(req, res) {
+        return res.status(200).json({
+            message: "ok",
+            countOfSpamer: globalThis.countOfSpamer
+        })
     }
+
+
+
+
+
+
+
+
+
+
+
+    async runningSpamer(req, res) {
+        // console.log("hi");
+
+
+        try {
+            let { spamerId, userId } = req.body
+            // console.log({ spamerId, userId });
+
+            if (!spamerId || !userId) {
+                return res.status(400).json({
+                    message: "missing data!"
+                })
+            }
+
+            let spamer = await connection.excuteQuery(`select * from spamer where spamerId = ${spamerId}`)
+                .then((res) => {
+                    return res[0]
+                })
+                .catch((e) => {
+                    console.log(e);
+                })
+
+            if (!spamer) {
+                return res.status(400).json({
+                    message: "not found spamer!"
+                })
+            }
+
+            let { userNameHaui, passWordHaui, moduleId, timeSpam, note, prioTeacher, avoidTeacher, prioTime, avoidTime, prioOnline } = spamer;
+
+            let token_url = await services.getTokenUrlHaui(userNameHaui, passWordHaui);
+
+            // console.log({ userNameHaui, passWordHaui, classCode, timeWait, note });
+
+            // console.log(spamer);
+
+            // console.log(token_url);
+
+            if (!token_url.includes("token=")) {
+                return res.status(400).json({
+                    message: "Tài khoản mật khẩu haui chưa chính xác"
+                })
+            }
+
+            let costMap = { 1: 15, 2: 30, 3: 50, 4: 100 };
+            let cost = costMap[timeSpam] || 10;
+
+
+            let user = await connection.excuteQuery(`select * from user where userId = ${userId}`)
+                .then((res) => {
+                    return res[0]
+                })
+                .catch((e) => {
+                    console.log(e);
+                })
+
+            if (user?.balance < cost || !user?.balance) {
+                return res.status(400).json({
+                    message: "balance not enought"
+                })
+            }
+
+            await connection.excuteQuery(`delete from spamer where spamerId = ${spamerId}`)
+                .catch((e) => {
+                    console.log(e);
+                })
+
+            res.status(200).json({
+                message: "start running!"
+            })
+
+            await connection
+                .excuteQuery(`UPDATE user SET balance = balance - ${cost} WHERE userId = ${userId}`)
+                .then(() => console.log(`Balance updated for userId ${userId}`))
+                .catch((e) => console.error('Database update error:', e));
+
+            globalThis.countOfSpamer++
+
+            await services.addSpamerToQueue(userNameHaui, passWordHaui)
+
+            await services.runningSpamer(userNameHaui, passWordHaui, moduleId, timeSpam, note, prioTeacher, avoidTeacher, prioTime, avoidTime, prioOnline)
+
+        } catch (error) {
+            console.log("err when runningWaiter : ", error);
+            return res.status(500).json({
+                message: "have wrong!!"
+            })
+        }
+    }
+
+    async getListClass(req, res) {
+        return res.status(200).json({
+            message: "ok",
+            data: globalThis.classesOfModuleId
+        })
+    }
+
+
 
 }
 

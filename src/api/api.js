@@ -8,12 +8,14 @@ let middleware = new MiddleWare()
 
 //test api
 api.get("/ping", (req, res) => {
+    console.log("----");
+
     res.cookie("ping", "ok", {
         httpOnly: true
     });
 
     res.status(200).json({
-        message: "ok from backend!"
+        message: "ok from waiter server!"
     });
 })
 
@@ -32,10 +34,16 @@ api.use("/auth", middleware.checkInforAccessToken)
 
 
 //auth_api
-api.post("/getCountOfWaiter", controler.getCountOfWaiter) // login haui sv
+api.post("/getCountOfWaiter", controler.getCountOfWaiter)
+
+api.post("/getCountOfSpamer", controler.getCountOfSpamer)
+
 
 api.post("/runningWaiter", controler.runningWaiter)
-api.post("/runningWaiterByModule", controler.runningWaiterByModule)
+api.post("/runningSpamer", controler.runningSpamer)
+
+api.get("/getListClass", controler.getListClass)
+
 
 
 
