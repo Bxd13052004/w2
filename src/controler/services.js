@@ -735,7 +735,12 @@ class Services {
             const maxAttempts = 4; // Giới hạn số lần thử
             while (attempts < maxAttempts) {
                 attempts++;
-                let res = await this.getInforClass(runningObj.kverify, runningObj.Cookie, moduleId)
+                let res
+                try {
+                    res = await this.getInforClass(runningObj.kverify, runningObj.Cookie, moduleId)
+                } catch (error) {
+
+                }
                 dataClasses = res?.data
                 if (dataClasses?.length > 0) {
                     globalThis.classesOfModuleId.set(moduleId, dataClasses)

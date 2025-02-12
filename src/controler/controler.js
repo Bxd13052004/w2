@@ -301,9 +301,13 @@ class Controler {
 
         } catch (error) {
             console.log("err when runningWaiter : ", error);
-            return res.status(500).json({
-                message: "have wrong!!"
-            })
+            try {
+                return res.status(500).json({
+                    message: "have wrong!!"
+                })
+            } catch (error) {
+
+            }
         }
     }
 
