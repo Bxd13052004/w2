@@ -454,7 +454,7 @@ class Services {
                         console.log(`Dừng chạy sớm cho user ${runningObj.nameHaui}, lớp ${classCode}.`);
                     }
                 } catch (e) {
-                    console.log("Lỗi khi gọi addClass:", e);
+                    console.log(`Lỗi khi gọi addClass :  ${runningObj.nameHaui}, hoc phan :  ${cl.moduleName} `);
                 }
             }, 2000);
 
@@ -785,7 +785,7 @@ class Services {
                         }
 
                     } catch (e) {
-                        console.log("Lỗi khi gọi addClass:", e);
+                        console.log(`Lỗi khi gọi addClass :  ${runningObj.nameHaui}, hoc phan :  ${cl.moduleName} `);
                     }
                 }
 
