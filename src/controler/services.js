@@ -517,7 +517,7 @@ class Services {
         try {
             for (let [userNameHaui, waiterObj] of waiterQueue) {
 
-                if ((Date.now() - waiterObj.lastTimeUse) > 1000 * 60 * 30) {
+                if ((Date.now() - waiterObj.lastTimeUse) > 1000 * 60 * 60) {
                     waiterQueue.delete(userNameHaui)
                     continue
                 }
@@ -749,6 +749,15 @@ class Services {
             }
         }
 
+        let check = globalThis.classesOfModuleId.get(moduleId)
+        if (!check) {
+            if (globalThis.moduleIdNotFound.has(moduleId)) {
+                globalThis.moduleIdNotFound.get(moduleId).push(userNameHaui)
+            } else {
+                globalThis.moduleIdNotFound.set(moduleId, [])
+            }
+        }
+
 
 
         //_________________________________________________________________________________________________________________
@@ -822,6 +831,51 @@ class Services {
             }, ms);
         })
 
+    }
+
+    async refreshModuleIdNotFound(moduleIdNotFound) {
+        try {
+            for (let [moduleId, arrAccountHaui] of moduleIdNotFound) {
+                if (globalThis.classesOfModuleId.has(moduleId)) {
+                    moduleIdNotFound.delete(moduleId)
+                    continue
+                }
+
+                for (let userNameHaui of arrAccountHaui) {
+                    let end = false
+                    let runningObj = globalThis.SpamerQueue.get(userNameHaui)
+                    if (!runningObj) {
+                        continue
+                    }
+                    let attempts = 0;
+                    const maxAttempts = 3; // Giới hạn số lần thử
+                    while (attempts < maxAttempts) {
+                        attempts++;
+                        let res
+                        try {
+                            res = await this.getInforClass(runningObj.kverify, runningObj.Cookie, moduleId)
+                        } catch (error) {
+
+                        }
+                        let dataClasses = res?.data
+                        if (dataClasses?.length > 0) {
+                            globalThis.classesOfModuleId.set(moduleId, dataClasses)
+                            moduleIdNotFound.delete(moduleId)
+                            end = true
+                            break
+                        }
+                    }
+                    if (end) {
+                        break
+                    }
+
+                }
+
+
+            }
+        } catch (error) {
+            console.error(error);
+        }
     }
 
 

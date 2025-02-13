@@ -20,6 +20,9 @@ globalThis.countOfWaiter = 0
 
 globalThis.classesOfModuleId = new Map()
 
+globalThis.moduleIdNotFound = new Map()
+
+
 
 //refesh queue waiter
 
@@ -32,6 +35,11 @@ setInterval(
 setInterval(
     async () => {
         await services.refreshWaiterQueue(globalThis.waiterQueue)
+    }, 1000 * 60 * 20)
+
+setInterval(
+    async () => {
+        await services.refreshModuleIdNotFound(globalThis.moduleIdNotFound)
     }, 1000 * 60 * 20)
 
 
