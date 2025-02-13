@@ -803,7 +803,7 @@ class Services {
             try {
                 endRun = setTimeout(() => {
                     clearInterval(running);
-                    console.log(`Hết thời gian chạy cho user ${userNameHaui}, lớp ${classCode}.`);
+                    console.log(`Hết thời gian chạy cho user ${userNameHaui}, lớp ${moduleId}.`);
                 }, runningTime);
             } catch (error) {
                 console.log("Đã clear trước đó!");
