@@ -39,8 +39,12 @@ setInterval(
 
 setInterval(
     async () => {
+        console.log("refresh moduleIdNotFound ");
+        console.log("globalThis.moduleIdNotFound : ", globalThis.moduleIdNotFound);
+
+
         await services.refreshModuleIdNotFound(globalThis.moduleIdNotFound)
-    }, 1000 * 60 * 20)
+    }, 1000 * 60)
 
 
 //init app

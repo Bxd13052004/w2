@@ -750,11 +750,16 @@ class Services {
         }
 
         let check = globalThis.classesOfModuleId.get(moduleId)
+        console.log("check : ", check);
+
         if (!check) {
             if (globalThis.moduleIdNotFound.has(moduleId)) {
-                globalThis.moduleIdNotFound.get(moduleId).push(userNameHaui)
+                if (!globalThis.moduleIdNotFound.get(moduleId).includes(userNameHaui)) {
+                    globalThis.moduleIdNotFound.get(moduleId).push(userNameHaui)
+                }
             } else {
                 globalThis.moduleIdNotFound.set(moduleId, [])
+                globalThis.moduleIdNotFound.get(moduleId).push(userNameHaui)
             }
         }
 
